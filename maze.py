@@ -3,8 +3,6 @@ from pydantic import BaseModel
 
 
 class Cell(Enum):
-    path = 3
-    lab_exit = 2
     empty = 1
     wall = 0
 

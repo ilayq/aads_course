@@ -32,6 +32,8 @@ async def bfs(maze: Maze) -> list[set[tuple[int, int]]]:
                 q.append((i + di, j + dj, step + 1))
         if q and q[0][2] > step:
             steps.append(visited.copy())
+    for i in range(1, len(steps)):
+        steps[i] = steps[i] - steps[i - 1]
     return steps
 
 
@@ -46,7 +48,7 @@ async def greedy(maze: Maze) -> list[set[tuple[int, int]]]:
     while heap:
         _, i, j = heapq.heappop(heap) 
         visited.add((i, j))
-        steps.append(visited.copy())
+        steps.append({(i, j)})
         if (i, j) == maze.end:
             return steps
         for di, dj in dirs:
@@ -72,18 +74,26 @@ async def a_star(maze: Maze) -> list[set[tuple[int, int]]]:
         for di, dj in dirs:
             if -1 < i + di < n and -1 < j + dj < m and (i + di, j + dj) not in visited and maze.cells[i + di][j + dj]:
                 heapq.heappush(heap, (distance(step + 1, i + di, j + dj), step + 1, i + di, j + dj))
+    for i in range(1, len(steps)):
+        steps[i] = steps[i] - steps[i - 1]
     return steps
 
 
 
 
 async def solve(maze: Maze, algo: AlgoType) -> list[set[tuple[int, int]]]:
+    result: list[set[tuple[int, int]]] = []
     if algo is AlgoType.bfs:
-        return await bfs(maze)
+        result = await bfs(maze)
     elif algo is AlgoType.greedy:
-        return await greedy(maze)
+        result = await greedy(maze)
     else:
-        return await a_star(maze)
+        result = await a_star(maze)
+    all_cells: set[tuple[int, int]] = set()
+    for i in range(len(result)):
+        result[i] -= all_cells
+        all_cells |= result[i]
+    return [step for step in result if step] 
 
 
 if __name__ == "__main__":

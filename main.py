@@ -1,4 +1,5 @@
 import fastapi
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from maze import Maze 
@@ -6,6 +7,14 @@ from algo import solve, AlgoType
 
 
 app = fastapi.FastAPI()
+
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post('/solve')
