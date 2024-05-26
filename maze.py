@@ -16,5 +16,3 @@ class Maze(BaseModel):
     start: tuple[int, int]
     end: tuple[int, int]
     cells: list[list[Cell]]
-
-

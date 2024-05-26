@@ -1,6 +1,7 @@
 from maze import Maze, Cell
 from enum import Enum
 from collections import deque
+import math
 
 import heapq
 
@@ -11,89 +12,107 @@ class AlgoType(Enum):
     a_star = 'a_star'
 
 
-dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+dirs = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 
 
-async def bfs(maze: Maze) -> list[set[tuple[int, int]]]:
+async def bfs(maze: Maze) -> tuple[list[set[tuple[int, int]]], list[list[tuple[int, int]]]]:
     q: deque[tuple[int, int, int]] = deque() # i, j, step
     n, m = maze.height, maze.width
     steps: list[set[tuple[int, int]]] = [] 
     i, j = maze.start
     q.append((i, j, 0))
     visited: set[tuple[int, int]] = set()
+    visited.add((i, j))
+    path = [[0 for _ in range(maze.width)] for _ in range(maze.height)]
+    path[i][j] = (i, j)
     while q:
         i, j, step = q.popleft()
         visited.add((i, j))
 
         if (i, j) == maze.end:
-            return steps
+            return steps, path
         for di, dj in dirs:
             if -1 < i + di < n and -1 < j + dj < m and (i + di, j + dj) not in visited and maze.cells[i + di][j + dj]:
                 q.append((i + di, j + dj, step + 1))
+                visited.add((i + di, j + dj))
+                path[i + di][j + dj] = (i, j)
         if q and q[0][2] > step:
             steps.append(visited.copy())
     for i in range(1, len(steps)):
         steps[i] = steps[i] - steps[i - 1]
-    return steps
+    return steps, path
+    
 
-
-async def greedy(maze: Maze) -> list[set[tuple[int, int]]]:
+async def greedy(maze: Maze) -> tuple[list[set[tuple[int, int]]], list[list[tuple[int, int]]]]:
     heap: list[tuple[int, int, int]] = []
     n, m = maze.height, maze.width
-    distance = lambda x1, y1, x2, y2: abs(x1 - x2) + abs(y1 - y2)
+    distance = lambda x1, y1, x2, y2: max(abs(x1 - x2), abs(y1 - y2))
     si, sj, ei, ey = (*maze.start, *maze.end)
     heapq.heappush(heap, (distance(si, sj, ei, ey), si, sj))
     visited: set[tuple[int, int]] = set()
+    visited.add((si, sj))
+    path = [[0 for _ in range(maze.width)] for _ in range(maze.height)]
+    path[si][sj] = (si, sj)
     steps: list[set[tuple[int, int]]] = []
     while heap:
         _, i, j = heapq.heappop(heap) 
         visited.add((i, j))
         steps.append({(i, j)})
         if (i, j) == maze.end:
-            return steps
+            return steps, path
         for di, dj in dirs:
             if -1 < i + di < n and -1 < j + dj < m and (i + di, j + dj) not in visited and maze.cells[i + di][j + dj]:
+                visited.add((i + di, j + dj))
                 heapq.heappush(heap, (distance(i + di, j + dj, ei, ey), i + di, j + dj))
-    return steps
+                path[i + di][j + dj] = (i, j)
+    return steps, path
 
 
-async def a_star(maze: Maze) -> list[set[tuple[int, int]]]:
+async def a_star(maze: Maze) -> tuple[list[set[tuple[int, int]]], list[list[tuple[int, int]]]]:
     heap: list[tuple[int, int, int, int]] = []
     n, m = maze.height, maze.width
     si, sj, ei, ej = (*maze.start, *maze.end)
-    distance = lambda step, i, j: step + abs(ei - i) + abs(ej - j) 
+    distance = lambda step, i, j: step + max(abs(i - ei), abs(j - ej))
     heapq.heappush(heap, (distance(0, si, sj), 0, si, sj))
     visited: set[tuple[int, int]] = set()
+    visited.add((si, sj))
+    path = [[0 for _ in range(maze.width)] for _ in range(maze.height)]
+    path[si][sj] = (si, sj)
     steps: list[set[tuple[int, int]]] = []
     while heap:
         _, step, i, j = heapq.heappop(heap)
         visited.add((i, j))
         steps.append(visited.copy())
         if (i, j) == maze.end:
-            return steps
+            return steps, path
         for di, dj in dirs:
             if -1 < i + di < n and -1 < j + dj < m and (i + di, j + dj) not in visited and maze.cells[i + di][j + dj]:
+                visited.add((i + di, j + dj))
                 heapq.heappush(heap, (distance(step + 1, i + di, j + dj), step + 1, i + di, j + dj))
+                path[i + di][j + dj] = (i, j)
     for i in range(1, len(steps)):
         steps[i] = steps[i] - steps[i - 1]
-    return steps
+    return steps, path
 
 
-
-
-async def solve(maze: Maze, algo: AlgoType) -> list[set[tuple[int, int]]]:
+async def solve(maze: Maze, algo: AlgoType) -> tuple[list[set[tuple[int, int]]], list[tuple[int, int]]]:
     result: list[set[tuple[int, int]]] = []
     if algo is AlgoType.bfs:
-        result = await bfs(maze)
+        result, path = await bfs(maze)
     elif algo is AlgoType.greedy:
-        result = await greedy(maze)
+        result, path = await greedy(maze)
     else:
-        result = await a_star(maze)
+        result, path = await a_star(maze)
     all_cells: set[tuple[int, int]] = set()
     for i in range(len(result)):
         result[i] -= all_cells
         all_cells |= result[i]
-    return [step for step in result if step] 
+    i, j = maze.end
+    total_path: list[tuple[int, int]] = []
+    while path[i][j] != (i, j):
+        total_path.append((i, j))
+        i, j = path[i][j]        
+    return [step for step in result if step], total_path[::-1] 
 
 
 if __name__ == "__main__":
